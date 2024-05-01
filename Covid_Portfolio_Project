@@ -1,0 +1,109 @@
+SELECT * FROM `projects.Coviddeathsclean`
+--  SELECT ALL THE DATA I WILL USE 
+
+SELECT location,date,total_cases,new_cases,total_deaths,population
+FROM `projects.Coviddeathsclean`
+order by 1,2
+
+-- Looking at total deaths vs total cases, shows the likelihood of dying if you contract covid
+
+
+ SELECT location,date,total_cases,total_deaths, (total_deaths/total_cases)* 100 AS DeathPercentage
+ From `projects.Coviddeathsclean`
+order by 1,2
+
+-- Looking at Total Cases vs Population, shows what percentage of population has Covid
+
+SELECT location,date,total_cases,population,(total_cases/population)* 100 AS CasePercentage
+ From `projects.Coviddeathsclean`
+order by 1,2
+
+-- Looking at countries with highest infection rate compared to population
+
+SELECT location,population,Max(total_cases) AS HighestinfectionCount, Max((total_cases/population))* 100 AS PercentagepopulationInfected
+ From `projects.Coviddeathsclean`
+ GROUP BY location,population
+order by PercentagepopulationInfected Desc
+
+-- Countries with the highest death count per population
+
+SELECT location,Max(total_deaths) AS Highestdeathcount
+ From `projects.Coviddeathsclean`
+ where continent is not null
+ GROUP BY location
+ ORDER BY Highestdeathcount DESC
+
+-- Breaking things down by Continent 
+
+SELECT continent,Max(total_deaths) AS Highestdeathcount
+ From `projects.Coviddeathsclean`
+ where continent is not null
+ GROUP BY continent
+ ORDER BY Highestdeathcount DESC
+
+
+--  Continents with the highest death Counts
+ 
+SELECT continent,Max(total_deaths) AS Highestdeathcount
+ From `projects.Coviddeathsclean`
+ where continent is not null
+ GROUP BY continent
+ ORDER BY Highestdeathcount DESC
+
+
+--  Dealing with vaccinations now,looking at total populaton vs vaccination 
+
+ SELECT dea.continent, dea.location,dea.date,dea.population,vac.new_vaccinations,
+ SUM(vac.new_vaccinations) OVER (PARTITION BY dea.location order by dea.location,dea.date) AS RollingPeoplevaccinated
+ FROM `projects.Covid_deaths_clean` dea
+ JOIN `projects.covid_vaccinations_clean` vac
+ ON dea.location = vac.location
+ and dea.date = vac.date
+ Where dea.continent is null
+Order by 1,2,3
+
+-- USE A CTE
+WITH PopVsVac AS (
+SELECT dea.continent, dea.location,dea.date,dea.population,vac.new_vaccinations,
+ SUM(vac.new_vaccinations) OVER (PARTITION BY dea.location order by dea.location,dea.date) AS RollingPeoplevaccinated,
+ FROM `projects.Covid_deaths_clean` dea
+ JOIN `projects.covid_vaccinations_clean` vac
+ ON dea.location = vac.location
+ and dea.date = vac.date
+ Where dea.continent is null )
+--  Order by 1,2,3
+ SELECT *, (RollingPeoplevaccinated/Population) *100
+ FROM PopVsVac
+
+-- TEMP Table 
+
+CREATE TABLE `projects.Percentpopulationvaccinate` AS
+SELECT
+    dea.continent, 
+    dea.location,
+    dea.date,
+    dea.population,
+    vac.new_vaccinations,
+    SUM(vac.new_vaccinations) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) AS RollingPeoplevaccinated
+FROM 
+    `projects.Covid_deaths_clean` dea
+JOIN 
+    `projects.covid_vaccinations_clean` vac
+ON 
+    dea.location = vac.location
+AND 
+    dea.date = vac.date
+WHERE 
+    dea.continent IS NULL;
+
+--  Creating views to store data for visualizations
+
+Create View `projects.Percentpopulationvaccinate`AS
+SELECT dea.continent, dea.location,dea.date,dea.population,vac.new_vaccinations,
+ SUM(vac.new_vaccinations) OVER (PARTITION BY dea.location order by dea.location,dea.date) AS RollingPeoplevaccinated,
+ FROM `projects.Covid_deaths_clean` dea
+ JOIN `projects.covid_vaccinations_clean` vac
+ ON dea.location = vac.location
+ and dea.date = vac.date
+ Where dea.continent is null 
+-- Order by 1,2,3
